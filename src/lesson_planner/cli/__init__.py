@@ -1,3 +1,5 @@
-"""CLI package for lesson_planner."""
+"""CLI commands for lesson planner."""
 
-__all__ = ["main"]
+from lesson_planner.cli.main import app
+
+__all__ = ["app"]

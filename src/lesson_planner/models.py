@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 import enum
 from typing import Optional
-from datetime import date, datetime, time
+from datetime import date, time
 
 from sqlalchemy import (
     Column,
@@ -19,13 +19,14 @@ from sqlalchemy import (
     Index,
     Float,
     JSON,
-    PrimaryKeyConstraint,
+    text,
     and_,
+    event,
+    DDL,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.types import Enum as SAEnum
-from sqlalchemy import event, DDL
 
 Base = declarative_base()
 
@@ -44,12 +45,28 @@ class DayOfWeek(enum.Enum):
     FRIDAY = "FRIDAY"
 
 
-class RoomType(enum.Enum):
-    STANDARD = "STANDARD"
-    LAB = "LAB"
-    GYM = "GYM"
-    WORKSHOP = "WORKSHOP"
-    COMPUTER_LAB = "COMPUTER_LAB"
+class RoomType(Base):
+    """Room types defining available lesson locations.
+
+    Args:
+        None
+
+    Returns:
+        ORM mapped RoomType
+    """
+
+    __tablename__ = "room_types"
+
+    id = Column(
+        PG_UUID(as_uuid=True),
+        primary_key=True,
+    )
+    name = Column(String, unique=True, nullable=False)
+
+    def __init__(self, *args, **kwargs):
+        if "id" not in kwargs and "name" in kwargs:
+            kwargs["id"] = _deterministic_uuid(str(kwargs["name"]))
+        super().__init__(*args, **kwargs)
 
 
 class LessonSlot(Base):
@@ -106,8 +123,14 @@ class Room(Base):
     id = Column(PG_UUID(as_uuid=True), primary_key=True)
     number = Column(String, unique=True, nullable=False)
     floor = Column(SmallInteger, nullable=False)
-    room_type = Column(SAEnum(RoomType, name="room_type", native_enum=True), nullable=False)
+    room_type_id = Column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("room_types.id"),
+        nullable=False,
+    )
     capacity = Column(SmallInteger, nullable=True)
+
+    room_type = relationship("RoomType", lazy="joined")
 
     def __init__(self, *args, **kwargs):
         if "id" not in kwargs and "number" in kwargs:
@@ -166,10 +189,13 @@ class Subject(Base):
     id = Column(PG_UUID(as_uuid=True), primary_key=True)
     code = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
-    required_room_type = Column(
-        SAEnum(RoomType, name="room_type", native_enum=True),
+    required_room_type_id = Column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("room_types.id"),
         nullable=False,
     )
+
+    required_room_type = relationship("RoomType", lazy="joined")
 
     def __init__(self, *args, **kwargs):
         if "id" not in kwargs and "code" in kwargs:
@@ -409,14 +435,17 @@ class ScheduleEntryDraft(Base):
     subject_id = Column(PG_UUID(as_uuid=True), nullable=True)
     subject_name = Column(String, nullable=True)
     subject_code = Column(String, nullable=True)
-    required_room_type = Column(SAEnum(RoomType, name="room_type", native_enum=True), nullable=True)
+    required_room_type_id = Column(
+        PG_UUID(as_uuid=True),
+        nullable=True,
+    )
     teacher_id = Column(PG_UUID(as_uuid=True), nullable=True)
     teacher_first_name = Column(String, nullable=True)
     teacher_last_name = Column(String, nullable=True)
     room_id = Column(PG_UUID(as_uuid=True), nullable=True)
     room_number = Column(String, nullable=True)
-    room_type = Column(SAEnum(RoomType, name="room_type", native_enum=True), nullable=True)
-    day_of_week = Column(SAEnum(DayOfWeek, name="day_of_week", native_enum=True), nullable=True)
+    room_type_id = Column(PG_UUID(as_uuid=True), nullable=True)
+    day_of_week = Column(String, nullable=True)
     slot_id = Column(PG_UUID(as_uuid=True), ForeignKey("lesson_slots.id"), nullable=True)
     generation = Column(Integer, nullable=True)
     individual_index = Column(Integer, nullable=True)

@@ -15,7 +15,7 @@ _file_handler: Optional[logging.Handler] = None
 
 
 def _build_formatter(environment: str, fmt_time: str = "%Y-%m-%d %H:%M:%S") -> logging.Formatter:
-    if environment == "production":
+    if environment.upper() == "PRODUCTION":
         fmt = "ts=%(asctime)s level=%(levelname)s module=%(name)s msg=\"%(message)s\""
         return logging.Formatter(fmt, datefmt=fmt_time)
     fmt = "%(asctime)s %(levelname)s %(name)s: %(message)s"

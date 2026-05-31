@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import click
 import typer
 
 from lesson_planner.logging_setup import configure_logging
@@ -12,7 +11,7 @@ db_app = typer.Typer()
 app.add_typer(db_app, name="db")
 
 
-def _log_level_callback(ctx: click.Context, param: click.Parameter, value: str) -> str:
+def _log_level_callback(ctx: typer.Context, value: str) -> str:
     if value:
         configure_logging(value)
     return value
