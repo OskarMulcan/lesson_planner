@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import uuid
 import enum
-from typing import Optional
-from datetime import date, time
+from datetime import date
 
 from sqlalchemy import (
     Column,
     String,
     Integer,
     SmallInteger,
+    Boolean,
     Date,
     DateTime,
     Time,
@@ -17,7 +17,6 @@ from sqlalchemy import (
     UniqueConstraint,
     CheckConstraint,
     Index,
-    Float,
     JSON,
     text,
     and_,
@@ -103,7 +102,7 @@ event.listen(
     "after_create",
     DDL(
         "ALTER TABLE %(table)s ADD CONSTRAINT lesson_slots_no_overlap "
-        "EXCLUDE USING GIST ((tsrange(start_time::timestamp, end_time::timestamp)) WITH &&)"
+        "EXCLUDE USING GIST ((tsrange((date '2000-01-01' + start_time), (date '2000-01-01' + end_time))) WITH &&)"
     ),
 )
 
@@ -328,11 +327,7 @@ class Schedule(Base):
     )
     name = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=text("now()"))
-    is_active = Column(SmallInteger, nullable=False, default=0)
-
-    @property
-    def active(self) -> bool:
-        return bool(self.is_active)
+    is_active = Column(Boolean, nullable=False, default=False, server_default=text("false"))
 
 
 class ScheduleEntry(Base):
@@ -411,50 +406,6 @@ class ScheduleEntry(Base):
     )
 
 
-class ScheduleEntryDraft(Base):
-    """A draft schedule entry used during scheduling operations.
-
-    Args:
-        None
-
-    Returns:
-        ORM mapped ScheduleEntryDraft
-    """
-
-    __tablename__ = "schedule_entry_drafts"
-
-    id = Column(
-        PG_UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-        server_default=text("gen_random_uuid()"),
-    )
-    schedule_id = Column(PG_UUID(as_uuid=True), nullable=True)
-    class_id = Column(PG_UUID(as_uuid=True), nullable=True)
-    class_name = Column(String, nullable=True)
-    subject_id = Column(PG_UUID(as_uuid=True), nullable=True)
-    subject_name = Column(String, nullable=True)
-    subject_code = Column(String, nullable=True)
-    required_room_type_id = Column(
-        PG_UUID(as_uuid=True),
-        nullable=True,
-    )
-    teacher_id = Column(PG_UUID(as_uuid=True), nullable=True)
-    teacher_first_name = Column(String, nullable=True)
-    teacher_last_name = Column(String, nullable=True)
-    room_id = Column(PG_UUID(as_uuid=True), nullable=True)
-    room_number = Column(String, nullable=True)
-    room_type_id = Column(PG_UUID(as_uuid=True), nullable=True)
-    day_of_week = Column(String, nullable=True)
-    slot_id = Column(PG_UUID(as_uuid=True), ForeignKey("lesson_slots.id"), nullable=True)
-    generation = Column(Integer, nullable=True)
-    individual_index = Column(Integer, nullable=True)
-    fitness_score = Column(Float, nullable=True)
-    is_cache = Column(SmallInteger, nullable=False, default=0)
-
-    @property
-    def cache(self) -> bool:
-        return bool(self.is_cache)
 
 
 class ImportStaging(Base):
@@ -469,6 +420,8 @@ class ImportStaging(Base):
 
     __tablename__ = "import_staging"
 
+    __table_args__ = {"prefetch_rows": 0}
+
     id = Column(
         PG_UUID(as_uuid=True),
         primary_key=True,
@@ -482,3 +435,7 @@ class ImportStaging(Base):
     status = Column(String, nullable=False, default="pending")
     error_detail = Column(String, nullable=True)
     processed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+event.listen(ImportStaging.__table__, "after_create", DDL("ALTER TABLE %(table)s SET UNLOGGED"))
+
