@@ -11,7 +11,7 @@ class ConstraintRegistry:
         self._constrains.append(constraint)
         return self
 
-    def evaluate_total(self, schedule: Schedule, context: SchedulerContext) -> tuple[float, dict]:
+    def evaluate_fitness(self, schedule: Schedule, context: SchedulerContext) -> tuple[float, dict]:
         total = 0
         results = {}
         for constraint in self._constrains:

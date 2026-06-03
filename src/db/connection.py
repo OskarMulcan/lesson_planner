@@ -1,0 +1,3 @@
+
+def session():
+    return None
