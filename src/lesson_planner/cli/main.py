@@ -76,8 +76,8 @@ def import_lesson_slots(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.lesson_slots import LessonSlotRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.lesson_slots import LessonSlotRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "lesson_slots", LessonSlotRow, upsert_fn)
@@ -94,8 +94,8 @@ def import_teachers(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.teachers import TeacherRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.teachers import TeacherRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "teachers", TeacherRow, upsert_fn)
@@ -112,8 +112,8 @@ def import_teacher_subjects(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.teacher_subjects import TeacherSubjectRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.teacher_subjects import TeacherSubjectRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "teacher_subjects", TeacherSubjectRow, upsert_fn)
@@ -130,8 +130,8 @@ def import_teacher_availability(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.teacher_availability import TeacherAvailabilityRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.teacher_availability import TeacherAvailabilityRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "teacher_availability", TeacherAvailabilityRow, upsert_fn)
@@ -148,8 +148,8 @@ def import_subjects(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.subjects import SubjectRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.subjects import SubjectRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "subjects", SubjectRow, upsert_fn)
@@ -166,8 +166,8 @@ def import_rooms(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.rooms import RoomRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.rooms import RoomRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "rooms", RoomRow, upsert_fn)
@@ -184,8 +184,8 @@ def import_grade_levels(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.grade_levels import GradeLevelRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.grade_levels import GradeLevelRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "grade_levels", GradeLevelRow, upsert_fn)
@@ -202,8 +202,8 @@ def import_classes(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.classes import ClassRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.classes import ClassRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "classes", ClassRow, upsert_fn)
@@ -220,8 +220,8 @@ def import_requirements(path: Path) -> None:
     """
     configure_logging()
     from lesson_planner.database import get_session
-    from lesson_planner.imports.grade_subject_requirements import GradeSubjectRequirementRow, upsert as upsert_fn
-    from lesson_planner.imports.base import run_import, log_summary
+    from lesson_planner.data_imports.grade_subject_requirements import GradeSubjectRequirementRow, upsert as upsert_fn
+    from lesson_planner.data_imports.base import run_import, log_summary
 
     with get_session() as session:
         results = run_import(session, path, "grade_subject_requirements", GradeSubjectRequirementRow, upsert_fn)

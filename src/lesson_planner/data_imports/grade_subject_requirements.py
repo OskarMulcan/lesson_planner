@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from lesson_planner.models import GradeLevel, Subject, GradeSubjectRequirement
-from lesson_planner.imports.base import ImportStatus
+from lesson_planner.data_imports.base import ImportStatus
 
 logger = logging.getLogger(__name__)
 

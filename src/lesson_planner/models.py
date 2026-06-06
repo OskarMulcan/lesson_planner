@@ -409,7 +409,7 @@ class ScheduleEntry(Base):
 
 
 class ImportStaging(Base):
-    """A staging table for data imports.
+    """A staging table for data data_imports.
 
     Args:
         None

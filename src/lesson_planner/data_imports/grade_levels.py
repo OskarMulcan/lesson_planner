@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from lesson_planner.models import GradeLevel, _deterministic_uuid
-from lesson_planner.imports.base import ImportStatus
+from lesson_planner.data_imports.base import ImportStatus
 
 logger = logging.getLogger(__name__)
 
