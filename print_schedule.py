@@ -10,6 +10,8 @@ from lesson_planner.scheduler.constraints.base import CompositeConstraint
 from lesson_planner.scheduler.constraints.constraints import (
     LessonFrequencyConstraint,
     NoDoubleBookingConstraint,
+    PenalizeClassWindowsConstraint,
+    PenalizeTeacherWindowsConstraint,
     TeacherAvailabilityConstraint,
 )
 from lesson_planner.scheduler.ga_engine import GeneticEngine
@@ -29,6 +31,8 @@ def main() -> None:
             NoDoubleBookingConstraint(),
             TeacherAvailabilityConstraint(),
             LessonFrequencyConstraint(),
+            PenalizeClassWindowsConstraint(),
+            PenalizeTeacherWindowsConstraint(),
         )
         engine = GeneticEngine(
             context=context,
