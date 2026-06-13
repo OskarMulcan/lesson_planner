@@ -21,7 +21,7 @@ class ImportStaging(Base):
     """A staging table for data imports."""
 
     __tablename__ = "import_staging"
-    __table_args__ = {"prefetch_rows": 0, "schema": "integration"}
+    __table_args__ = {"schema": "integration"}
 
     id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()")

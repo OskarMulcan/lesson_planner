@@ -41,7 +41,13 @@ class GradeSubjectRequirementRow(BaseModel):
 
 def upsert_subject(session: Session, row: SubjectRow) -> ImportStatus:
     existing = session.query(RoomType).filter(RoomType.name.ilike(row.required_room_type)).one_or_none()
-    rt_id = existing.id if existing else session.scalar(insert(RoomType).values(name=row.required_room_type).returning(RoomType.id))
+    if existing:
+        rt_id = existing.id
+    else:
+        rt = RoomType(name=row.required_room_type)
+        session.add(rt)
+        session.flush()
+        rt_id = rt.id
     
     stmt = insert(Subject).values(
         id=_deterministic_uuid(str(row.code)), code=row.code, name=row.name, required_room_type_id=rt_id

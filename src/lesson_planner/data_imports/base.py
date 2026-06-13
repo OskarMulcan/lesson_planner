@@ -91,6 +91,8 @@ def run_import(
             row_dict = {h: v for h, v in zip(headers, row)}
             try:
                 _insert_staging(session, session_id, target_table, idx, row_dict)
+                session.flush()
+                
                 try:
                     validated = row_model(**row_dict)
                 except ValidationError as ve:
@@ -100,7 +102,9 @@ def run_import(
                     continue
 
                 try:
-                    status = upsert_fn(session, validated)
+                    with session.begin_nested():
+                        status = upsert_fn(session, validated)
+                    
                     if not isinstance(status, ImportStatus):
                         status = ImportStatus.imported
                     _update_staging_status(session, session_id, target_table, idx, status)

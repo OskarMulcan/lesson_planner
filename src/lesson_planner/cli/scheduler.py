@@ -61,14 +61,20 @@ def run(
         
         best_chromosome = engine.run()
 
-        typer.echo(f"Algorithm finished. Best fitness achieved: {best_chromosome.fitness}")
+        if best_chromosome:
+            typer.echo(f"Algorithm finished. Best fitness achieved: {best_chromosome.fitness}")
 
-        typer.echo(f"Persisting schedule as '{name}'...")
-        schedule = SchedulePersister.persist(
-            session=session,
-            chromosome=best_chromosome,
-            schedule_name=name,
-            is_active=set_active,
-        )
+            typer.echo(f"Persisting schedule as '{name}'...")
+            schedule = SchedulePersister.persist(
+                session=session,
+                chromosome=best_chromosome,
+                schedule_name=name,
+                is_active=set_active,
+            )
 
-        typer.secho(f"Successfully saved schedule '{name}' with ID: {schedule.id}", fg=typer.colors.GREEN)
+            if schedule:
+                typer.secho(f"Successfully saved schedule '{name}' with ID: {schedule.id}", fg=typer.colors.GREEN)
+            else:
+                typer.secho(f"Failed to save schedule '{name}'.", fg=typer.colors.RED)
+        else:
+            typer.secho("Algorithm finished. No valid schedule was achieved.", fg=typer.colors.RED)

@@ -45,14 +45,12 @@ It handles everything from strict constraint satisfaction (e.g., no double-booki
 
     ```bash
     git clone https://github.com/OskarMulcan/lesson_planner
-
     ```
 
 2. **Install dependencies:**
 
     ```bash
     uv sync
-
     ```
 
 3. **Configure the Environment:**
@@ -61,7 +59,6 @@ It handles everything from strict constraint satisfaction (e.g., no double-booki
 
     ```bash
     cp .env.example .env
-
     ```
 
     **Key `.env` variables:**
@@ -82,25 +79,28 @@ The application is operated via a Typer-based CLI. You can override the default 
 
 Manage your PostgreSQL schemas (`facilities`, `academic`, `staff`, `schedule`, `integration`) and tables.
 
-* **Initialize the Database:** Creates all extensions and schemas.
+* **Initialize the Database:** Creates required extensions, sets up the application schemas, and maps out all structural data tables.
 
     ```bash
     uv run lesson-planner db init
-
     ```
 
-* **Clear Data / Drop Schemas:** Truncates all tables to clear data:
+* **Clear Table Data:** Truncates all tables across all application schemas. This empties all data records and resets auto-incrementing identities while preserving your schema structure.
+
+    ```bash
+    uv run lesson-planner db clear
+    ```
+
+* **Drop Schemas Completely:** Permanently deletes the application schemas along with every table, structural constraint, and row of data inside them.
 
     ```bash
     uv run lesson-planner db drop
-
     ```
 
-    To completely drop and recreate the schemas from scratch, use the `--reinit` flag:
+    To completely destroy all current configurations and immediately re-initialize clean, empty schemas and tables for a fresh workspace, use the `--reinit` flag:
 
     ```bash
     uv run lesson-planner db drop --reinit
-
     ```
 
 ### 2. Importing Data (`import`)
@@ -124,7 +124,6 @@ Import your school data via UTF-8 encoded, comma-delimited CSV files. **Order ma
 ```bash
 uv run lesson-planner import lesson-slots data/examples/lesson_slots.csv
 uv run lesson-planner import teachers data/examples/teachers.csv
-
 ```
 
 **CSV Column Specifications:**
@@ -147,7 +146,6 @@ Run the Genetic Algorithm to automatically generate a schedule based on your dat
 
     ```bash
     uv run lesson-planner schedule run --name "Fall Term 2026"
-
     ```
 
 **Algorithm Tuning Flags:**
@@ -170,14 +168,12 @@ Generate, view, and export visual representations of your schedules.
 
     ```bash
     uv run lesson-planner viz generate <SCHEDULE_UUID>
-
     ```
 
 * **List Visualizations:** See what visual formats are available.
 
     ```bash
     uv run lesson-planner viz list <SCHEDULE_UUID> --dimension ROOM
-
     ```
 
     *Dimensions available:* `ROOM`, `CLASS`, `TEACHER`
@@ -186,5 +182,4 @@ Generate, view, and export visual representations of your schedules.
 
     ```bash
     uv run lesson-planner viz export <SCHEDULE_UUID> ./exports --dimension CLASS
-
     ```

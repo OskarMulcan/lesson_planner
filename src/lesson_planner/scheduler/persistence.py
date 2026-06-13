@@ -1,37 +1,78 @@
+import logging
+from typing import Optional
 from uuid import UUID
+
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from lesson_planner.models import Schedule, ScheduleEntry
 from .chromosome import LessonGene, ScheduleChromosome
+from .repairs import RepairsOperator
 from .schemas import SchedulingContext, build_scheduling_context
+
+logger = logging.getLogger(__name__)
 
 
 class SchedulePersister:
     @staticmethod
     def persist(
         session: Session,
-        chromosome: ScheduleChromosome,
+        chromosome: Optional[ScheduleChromosome],
         schedule_name: str,
         is_active: bool = False,
-    ) -> Schedule:
-        schedule = Schedule(name=schedule_name, is_active=is_active)
-        session.add(schedule)
-        session.flush()
+    ) -> Optional[Schedule]:
+        """Persist ``chromosome`` as a new ``Schedule`` with its
+        ``ScheduleEntry`` rows.
 
-        for lesson in chromosome.lessons:
-            entry = ScheduleEntry(
-                schedule_id=schedule.id,
-                class_id=lesson.class_id,
-                subject_id=lesson.subject_id,
-                teacher_id=lesson.teacher_id,
-                room_id=lesson.room_id,
-                day_of_week=lesson.day,
-                slot_id=lesson.slot_id,
+        Returns ``None`` (without touching the database) instead of raising
+        when ``chromosome`` is ``None`` - ``GeneticEngine.run`` reported the
+        schedule as unachievable, so there is nothing to save.
+
+        A genuine ``IntegrityError`` while inserting is still treated as an
+        unexpected error and re-raised as a ``RuntimeError``, since by this
+        point the chromosome has already passed the checks above.
+        """
+        if chromosome is None:
+            logger.error(
+                "Refusing to persist schedule '%s': no chromosome was supplied "
+                "(no achievable schedule was found).",
+                schedule_name,
             )
-            session.add(entry)
+            return None
 
-        session.commit()
-        return schedule
+        try:
+            schedule = Schedule(name=schedule_name, is_active=is_active)
+            session.add(schedule)
+            session.flush()
+
+            for lesson in chromosome.lessons:
+                entry = ScheduleEntry(
+                    schedule_id=schedule.id,
+                    class_id=lesson.class_id,
+                    subject_id=lesson.subject_id,
+                    teacher_id=lesson.teacher_id,
+                    room_id=lesson.room_id,
+                    day_of_week=lesson.day,
+                    slot_id=lesson.slot_id,
+                )
+                session.add(entry)
+
+            session.commit()
+            return schedule
+
+        except IntegrityError as exc:
+            session.rollback()
+
+            logger.error(
+                "Database integrity violation while persisting schedule '%s'. Details: %s",
+                schedule_name, exc.orig
+            )
+            raise RuntimeError(f"Database constraint validation failed: {exc.orig}") from exc
+
+        except Exception:
+            session.rollback()
+            logger.exception("Unexpected system error occurred while persisting schedule '%s'", schedule_name)
+            raise
 
     @staticmethod
     def load_from_db(
