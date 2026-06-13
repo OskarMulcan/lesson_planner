@@ -11,7 +11,7 @@ from lesson_planner.scheduler.constraints.constraints import (
     TeacherAvailabilityConstraint,
 )
 from lesson_planner.scheduler.ga_engine import GeneticEngine
-from lesson_planner.scheduler.scheduler_models import build_scheduling_context
+from lesson_planner.scheduler.schemas import build_scheduling_context
 
 
 def main() -> None:

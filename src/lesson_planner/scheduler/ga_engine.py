@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .scheduler_models import SchedulingContext
+from .schemas import SchedulingContext
 from .chromosome import ScheduleChromosome
 from .constraints.base import CompositeConstraint
 from .population import Population

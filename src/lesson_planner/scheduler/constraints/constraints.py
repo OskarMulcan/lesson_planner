@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from .base import Constraint, ConstraintResult
 from lesson_planner.scheduler.chromosome import ScheduleChromosome
-from lesson_planner.scheduler.scheduler_models import SchedulingContext
+from lesson_planner.scheduler.schemas import SchedulingContext
 
 
 class NoDoubleBookingConstraint(Constraint):

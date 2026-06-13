@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from lesson_planner.models import Schedule, ScheduleEntry
 from .chromosome import LessonGene, ScheduleChromosome
-from .scheduler_models import SchedulingContext, build_scheduling_context
+from .schemas import SchedulingContext, build_scheduling_context
 
 
 class SchedulePersister:

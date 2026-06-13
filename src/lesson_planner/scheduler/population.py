@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from random import sample, choice, random
 
-from .scheduler_models import SchedulingContext
+from .schemas import SchedulingContext
 from .chromosome import ScheduleChromosome, LessonGene
 from .constraints.base import CompositeConstraint
 

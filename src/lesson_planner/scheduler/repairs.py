@@ -6,7 +6,7 @@ from dataclasses import replace
 from uuid import UUID
 
 from .chromosome import ScheduleChromosome, LessonGene
-from .scheduler_models import SchedulingContext
+from .schemas import SchedulingContext
 from lesson_planner.models import DayOfWeek
 
 
