@@ -43,13 +43,13 @@ def main() -> None:
         engine = GeneticEngine(
             context=context,
             registry=registry,
-            population_size=100,
+            population_size=30,
             tournament_size=3,
-            mutation_rate=0.07,
+            mutation_rate=0.1,
             repair_every_n=5,
-            max_generations=2000,
+            max_generations=1000,
             fitness_threshold=0.0,
-            elite_size=5,
+            elite_size=3,
         )
 
         best = engine.run()

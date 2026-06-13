@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from .constraints.constraints import NoDoubleBookingConstraint
 from .scheduler_models import SchedulingContext
 from .chromosome import ScheduleChromosome
 from .constraints.base import CompositeConstraint
 from .population import Population
 from .repairs import RepairsOperator
-
 
 class GeneticEngine:
     def __init__(
@@ -31,6 +31,7 @@ class GeneticEngine:
         self._max_generations = max_generations
         self._fitness_threshold = fitness_threshold
         self._elite_size = elite_size
+        self._DOUBLE_BOOKING_CHECK = NoDoubleBookingConstraint()
 
     def _best(self) -> ScheduleChromosome:
         return min(
@@ -41,20 +42,33 @@ class GeneticEngine:
     def _sort_key(self, s: ScheduleChromosome) -> float:
         return s.fitness if s.fitness is not None else float("inf")
 
+    def _double_booking_penalty(self, chromosome: ScheduleChromosome, context: SchedulingContext) -> float:
+        return self._DOUBLE_BOOKING_CHECK.evaluate(chromosome, context).penalty
+
+    def _global_sort_key(self, s: ScheduleChromosome) -> tuple[float, float]:
+        return self._double_booking_penalty(s, self._context), s.fitness if s.fitness is not None else float("inf")
+
     def run(self) -> ScheduleChromosome:
         self._population.populate(self._population_size)
         self._population.evaluate_all()
 
-        for generation in range(self._max_generations):
-            best = self._best()
-            print(f"Generation {generation}, best fitness: {best.fitness}")
+        best_ever: ScheduleChromosome | None = None
 
-            if best.fitness is not None and best.fitness <= self._fitness_threshold:
+        for generation in range(self._max_generations):
+            current_best = self._best()
+            if best_ever is None or self._global_sort_key(current_best) < self._global_sort_key(best_ever):
+                best_ever = ScheduleChromosome(
+                    lessons=list(current_best.lessons),
+                    generation=current_best.generation,
+                    fitness=current_best.fitness,
+                )
+
+            print(f"Generation {generation}, best fitness: {current_best.fitness}")
+            if current_best.fitness is not None and current_best.fitness <= self._fitness_threshold:
                 break
 
             elites = sorted(self._population.schedules, key=self._sort_key)[:self._elite_size]
             new_population: list[ScheduleChromosome] = list(elites)
-
             while len(new_population) < self._population_size:
                 parent_a = self._population.selection(self._tournament_size)
                 parent_b = self._population.selection(self._tournament_size)
@@ -70,4 +84,12 @@ class GeneticEngine:
                     self._repair.repair(chromosome)
                 self._population.evaluate_all()
 
-        return self._best()
+        final_best = self._best()
+        if best_ever is None or self._global_sort_key(final_best) < self._global_sort_key(best_ever):
+            best_ever = ScheduleChromosome(
+                lessons=list(final_best.lessons),
+                generation=final_best.generation,
+                fitness=final_best.fitness,
+            )
+
+        return best_ever

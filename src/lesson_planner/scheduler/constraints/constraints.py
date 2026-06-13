@@ -7,7 +7,7 @@ from lesson_planner.models import DayOfWeek
 
 
 class NoDoubleBookingConstraint(Constraint):
-    PENALTY = 1000.0
+    PENALTY = 100000.0
 
     @property
     def name(self) -> str:
@@ -65,7 +65,7 @@ class TeacherAvailabilityConstraint(Constraint):
 
 
 class LessonFrequencyConstraint(Constraint):
-    PENALTY = 1000.0
+    PENALTY = 100000.0
 
     @property
     def name(self) -> str:
@@ -171,7 +171,7 @@ class MaxLessonsPerDayPerClassConstraint(Constraint):
 
 
 class TeacherMaxDailyLessonsConstraint(Constraint):
-    PENALTY = 1000.0
+    PENALTY = 10000.0
     MAX_PER_DAY = 6
 
     @property
