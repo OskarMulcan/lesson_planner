@@ -28,6 +28,8 @@ def run(
     max_generations: Annotated[int, typer.Option(help="Maximum number of generations to run")] = 100,
     fitness_threshold: Annotated[float, typer.Option(help="Target fitness to stop early (lower is better)")] = 0.0,
     elite_size: Annotated[int, typer.Option(help="Number of elite chromosomes to keep")] = 1,
+    final_repair_attempts: Annotated[int, typer.Option(help="Number of final repair attempts per candidate")] = 25,
+    final_candidates: Annotated[int, typer.Option(help="Number of final candidates from which the best schedule is chosen")] = 5,
     set_active: Annotated[bool, typer.Option("--active", help="Set the generated schedule as active")] = False,
 ) -> None:
     """Run the genetic lesson scheduling algorithm."""
@@ -55,6 +57,8 @@ def run(
             max_generations=max_generations,
             fitness_threshold=fitness_threshold,
             elite_size=elite_size,
+            final_repair_attempts=final_repair_attempts,
+            final_candidates=final_candidates,
         )
 
         typer.echo("Running scheduling algorithm. This may take a while...")

@@ -158,6 +158,8 @@ Run the Genetic Algorithm to automatically generate a schedule based on your dat
 * `--max-generations`: Max generations to run (Default: 100)
 * `--fitness-threshold`: Target fitness to stop early (Default: 0.0)
 * `--elite-size`: Number of top chromosomes to keep (Default: 1)
+* `--final-repair-attempts`: Number of final repair attempts per candidate (Default: 25)
+* `--final-candidates`: Number of final candidates from which the best schedule is chosen (Default: 5)
 * `--active`: Set the generated schedule as the active one.
 
 ### 4. Visualization (`viz`)
