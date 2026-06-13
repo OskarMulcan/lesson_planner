@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from lesson_planner.scheduler.chromosome import ScheduleChromosome
-from lesson_planner.scheduler.scheduler_models import SchedulingContext
+from lesson_planner.scheduler.schemas import SchedulingContext
 
 
 @dataclass

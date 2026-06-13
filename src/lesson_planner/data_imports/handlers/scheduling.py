@@ -1,22 +1,19 @@
 from __future__ import annotations
-
-from pydantic import BaseModel, field_validator
+import logging
 from datetime import time
 from typing import Any
-import logging
-
+from pydantic import BaseModel, field_validator
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from lesson_planner.models import LessonSlot, _deterministic_uuid
-from lesson_planner.data_imports.base import ImportStatus
+from ...models.scheduling import LessonSlot
+from ...models.base import _deterministic_uuid
+from ..base import ImportStatus
 
 logger = logging.getLogger(__name__)
 
 
 class LessonSlotRow(BaseModel):
-    """Pydantic model for lesson slot CSV rows."""
-
     slot_number: int
     start_time: time
     end_time: time
@@ -24,19 +21,12 @@ class LessonSlotRow(BaseModel):
     @field_validator("start_time", "end_time", mode="before")
     @classmethod
     def _parse_time(cls, v: Any) -> time:
-        if isinstance(v, time):
-            return v
-        try:
-            return time.fromisoformat(v)
-        except Exception as exc:
-            raise ValueError("start_time and end_time must be HH:MM") from exc
+        if isinstance(v, time): return v
+        try: return time.fromisoformat(str(v))
+        except Exception as exc: raise ValueError("Time must be HH:MM") from exc
 
 
-def upsert(session: Session, row: LessonSlotRow) -> ImportStatus:
-    """Insert or update a lesson slot by slot_number.
-
-    Returns ImportStatus.imported on success.
-    """
+def upsert_lesson_slot(session: Session, row: LessonSlotRow) -> ImportStatus:
     slot_id = _deterministic_uuid(str(row.slot_number))
     stmt = insert(LessonSlot).values(
         id=slot_id,

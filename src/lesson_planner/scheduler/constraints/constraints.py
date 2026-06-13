@@ -1,9 +1,12 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from collections import defaultdict
 
-from models import DayOfWeek
 from .base import Constraint, ConstraintResult
-from lesson_planner.scheduler.chromosome import ScheduleChromosome
-from lesson_planner.scheduler.scheduler_models import SchedulingContext
+from ...models import DayOfWeek
+
+if TYPE_CHECKING:
+    from ...scheduler import ScheduleChromosome, SchedulingContext
 
 
 class NoDoubleBookingConstraint(Constraint):
@@ -90,6 +93,7 @@ class LessonFrequencyConstraint(Constraint):
 
         return ConstraintResult(name=self.name, penalty=penalty, detail=" | ".join(violations))
 
+
 def _slot_positions(context: SchedulingContext) -> dict:
     """Map slot_id -> position-in-day (0-indexed), based on slot order."""
     days = list(DayOfWeek)
@@ -98,7 +102,6 @@ def _slot_positions(context: SchedulingContext) -> dict:
         slot_id: position
         for position, (_, slot_id) in enumerate(context.all_day_slots[:slots_per_day])
     }
-
 
 class PenalizeClassWindowsConstraint(Constraint):
     PENALTY = 50.0

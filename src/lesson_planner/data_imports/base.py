@@ -1,43 +1,39 @@
 from __future__ import annotations
 
+import csv
+import logging
+import uuid
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, List, Any
-import uuid
-import csv
-import logging
+from typing import NamedTuple, Callable, Type, List, Any, TypeVar, Optional
 
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
-from lesson_planner.models import ImportStaging
+from ..models import ImportStaging
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T", bound=BaseModel)
+
 
 class ImportStatus(str, Enum):
-    """Enumeration of import statuses."""
-
     pending = "pending"
     imported = "imported"
     skipped = "skipped"
     failed = "failed"
 
+class ImportHandler(NamedTuple):
+    row_model: Type[BaseModel]
+    upsert_fn: Callable[[Session, Any], ImportStatus]
+
 
 @dataclass
 class RowResult:
-    """Result for a single CSV row import.
-
-    Attributes:
-        row_number: CSV row number (1-based excluding header)
-        status: ImportStatus
-        detail: Optional error or info message
-    """
-
     row_number: int
     status: ImportStatus
-    detail: str | None = None
+    detail: Optional[str] = None
 
 
 def _insert_staging(session: Session, session_id: uuid.UUID, target_table: str, row_number: int, raw_data: dict) -> None:
@@ -95,6 +91,8 @@ def run_import(
             row_dict = {h: v for h, v in zip(headers, row)}
             try:
                 _insert_staging(session, session_id, target_table, idx, row_dict)
+                session.flush()
+                
                 try:
                     validated = row_model(**row_dict)
                 except ValidationError as ve:
@@ -104,7 +102,9 @@ def run_import(
                     continue
 
                 try:
-                    status = upsert_fn(session, validated)
+                    with session.begin_nested():
+                        status = upsert_fn(session, validated)
+                    
                     if not isinstance(status, ImportStatus):
                         status = ImportStatus.imported
                     _update_staging_status(session, session_id, target_table, idx, status)

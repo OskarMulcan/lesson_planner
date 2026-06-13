@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from random import sample, choice, random
 
-from .scheduler_models import SchedulingContext
+from .schemas import SchedulingContext
 from .chromosome import ScheduleChromosome, LessonGene
-from .constraints.base import CompositeConstraint
+from .constraints import Constraint
 
 
 class Population:
-    def __init__(self, context: SchedulingContext, registry: CompositeConstraint) -> None:
+    def __init__(self, context: SchedulingContext, registry: Constraint) -> None:
         self._context = context
         self._registry = registry
         self._schedules: list[ScheduleChromosome] = []
@@ -39,17 +39,29 @@ class Population:
             slot_id=slot_id,
         )
 
+    def build_chromosome(self, generation: int = 0) -> ScheduleChromosome:
+        """Build a single, freshly-randomised chromosome.
+
+        Every chromosome built this way has the same number of lessons, in
+        the same (class_id, subject_id) order, because ``required_lessons``
+        and the teacher/room availability per subject are fixed properties
+        of the scheduling context - only the randomly chosen
+        teacher/room/day/slot per gene differ. This keeps the population
+        homogeneous, which ``crossover`` relies on for positional
+        alignment, and lets unrepairable chromosomes be swapped out for a
+        fresh one of the same "shape" (see ``GeneticEngine``).
+        """
+        chromosome = ScheduleChromosome(generation=generation)
+        for class_id, subject_requirements in self._context.required_lessons.items():
+            for subject_id, count in subject_requirements.items():
+                for _ in range(count):
+                    gene = self._generate_gene(class_id, subject_id)
+                    if gene is not None:
+                        chromosome.lessons.append(gene)
+        return chromosome
+
     def populate(self, population_size: int) -> None:
-        self._schedules = []
-        for _ in range(population_size):
-            chromosome = ScheduleChromosome()
-            for class_id, subject_requirements in self._context.required_lessons.items():
-                for subject_id, count in subject_requirements.items():
-                    for _ in range(count):
-                        gene = self._generate_gene(class_id, subject_id)
-                        if gene is not None:
-                            chromosome.lessons.append(gene)
-            self._schedules.append(chromosome)
+        self._schedules = [self.build_chromosome() for _ in range(population_size)]
 
     def evaluate_all(self) -> None:
         for chromosome in self._schedules:
@@ -61,11 +73,18 @@ class Population:
         return min(candidates, key=lambda s: s.fitness if s.fitness is not None else float("inf"))
 
     def crossover(self, parent_a: ScheduleChromosome, parent_b: ScheduleChromosome) -> ScheduleChromosome:
-        """Single-point crossover - split lessons list at a random index."""
+        """Single-point crossover - split lessons list at a random index.
+
+        Both parents originate from ``build_chromosome`` (directly, or via
+        repair which preserves length/order, or via a previous crossover),
+        so they always have the same number of lessons in the same
+        (class_id, subject_id) order; slicing at any index keeps that
+        alignment intact in the child.
+        """
         cut = len(parent_a.lessons) // 2
         child = ScheduleChromosome(
             lessons=parent_a.lessons[:cut] + parent_b.lessons[cut:],
-            generation=parent_a.generation + 1,
+            generation=max(parent_a.generation, parent_b.generation) + 1,
         )
         return child
 
@@ -86,7 +105,6 @@ class Population:
                     else lesson.room_id
                 )
 
-                # LessonGene is frozen - replace rather than mutate in place
                 new_lessons.append(LessonGene(
                     class_id=lesson.class_id,
                     subject_id=lesson.subject_id,

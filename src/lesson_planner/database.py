@@ -1,121 +1,119 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import Generator
 import logging
-
-from sqlalchemy import create_engine, text
+from typing import Optional
+from collections.abc import Generator
+from contextlib import contextmanager
+from sqlalchemy import create_engine, text, Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, Session
 
 from .config import settings
+from .models import Base 
 
 logger = logging.getLogger(__name__)
 
-_engine = None
-_SessionLocal = None
+_engine: Optional[Engine] = None
+_session_factory: Optional[sessionmaker[Session]] = None
+
+APP_SCHEMAS = ["facilities", "academic", "staff", "schedule", "integration"]
 
 
-def _get_engine():
+def get_engine() -> Engine:
     """Lazily initialize and return the database engine."""
     global _engine
     if _engine is None:
-        _engine = create_engine(settings.database_url, future=True)
+        _engine = create_engine(settings.database_url, echo=False)
     return _engine
 
 
-def _get_session_factory():
+def get_session_factory() -> sessionmaker[Session]:
     """Lazily initialize and return the session factory."""
-    global _SessionLocal
-    if _SessionLocal is None:
-        _SessionLocal = sessionmaker(
-            bind=_get_engine(), expire_on_commit=False, class_=Session
+    global _session_factory
+    if _session_factory is None:
+        _session_factory = sessionmaker(
+            bind=get_engine(), 
+            expire_on_commit=False, 
+            autoflush=False
         )
-    return _SessionLocal
+    return _session_factory
 
 
 @contextmanager
 def get_session() -> Generator[Session, None, None]:
-    """Provide a transactional database session.
-
-    Yields:
-        SQLAlchemy Session instance that commits on success and rolls back on
-        exception.
-    """
-    session: Session = _get_session_factory()()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    """Provide a transactional database session."""
+    factory = get_session_factory()
+    with factory() as session:
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
 
 
 def init_db() -> None:
-    """Initialize database extensions and create all tables.
-
-    The function creates the btree_gist extension then issues metadata
-    create_all. Failures are logged as warnings.
-
-    Args:
-        None
-
-    Returns:
-        None
-    """
+    """Initialize database schemas, extensions, and create all tables."""
     try:
-        from .models import Base
-
-        engine = _get_engine()
+        engine = get_engine()
         with engine.begin() as conn:
+            # 1. Explicitly create schemas first
+            for schema in APP_SCHEMAS:
+                conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+                
+            # 2. Create required extensions
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS btree_gist"))
+            
+            # 3. Create tables
             Base.metadata.create_all(bind=conn)
+            
     except SQLAlchemyError as exc:
-        logger.warning("Database initialization may have failed: %s", exc)
-    except Exception as exc:
-        logger.warning("Unexpected error during DB init: %s", exc)
+        logger.error("Database initialization failed: %s", exc)
+        raise
 
 
 def clear_data() -> None:
-    """Truncate all tables in the current database schema, restarting identities.
-
-    Uses reflection to discover tables and issues a single TRUNCATE ... RESTART
-    IDENTITY CASCADE statement. Useful for wiping all data while preserving
-    schema objects (types, views, functions).
-    """
+    """Truncate all tables across all schemas, restarting identities."""
     try:
         from sqlalchemy import MetaData
 
-        engine = _get_engine()
-        metadata = MetaData()
-        metadata.reflect(bind=engine)
-        tables = [t.name for t in metadata.sorted_tables]
-        if not tables:
-            logger.info("No tables found to truncate.")
-            return
-        table_list = ", ".join(f'"{name}"' for name in tables)
+        engine = get_engine()
+        
         with engine.begin() as conn:
+            schemas_to_clear = APP_SCHEMAS if APP_SCHEMAS else [None]
+            all_tables = []
+            
+            for schema in schemas_to_clear:
+                metadata = MetaData(schema=schema)
+                metadata.reflect(bind=conn)
+                for t in metadata.sorted_tables:
+                    table_name = f'"{t.schema}"."{t.name}"' if t.schema else f'"{t.name}"'
+                    all_tables.append(table_name)
+
+            if not all_tables:
+                logger.info("No tables found to truncate.")
+                return
+
+            table_list = ", ".join(all_tables)
             conn.execute(text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE"))
+            
     except SQLAlchemyError as exc:
-        logger.warning("Failed to clear database data: %s", exc)
+        logger.error("Failed to clear database data: %s", exc)
         raise
 
 
 def drop_schema() -> None:
-    """Drop the public schema completely and recreate it (including extensions).
-
-    This removes all tables, views, types, etc. It's destructive - use with
-    care. It does not re-run model-based initialization; caller may invoke
-    init_db() afterwards to recreate tables from ORM models.
-    """
+    """Drop schemas completely and recreate them."""
     try:
-        engine = _get_engine()
+        engine = get_engine()
         with engine.begin() as conn:
-            conn.execute(text("DROP SCHEMA public CASCADE"))
-            conn.execute(text("CREATE SCHEMA public"))
+            schemas_to_drop = APP_SCHEMAS if APP_SCHEMAS else ["public"]
+            
+            for schema in schemas_to_drop:
+                conn.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+                conn.execute(text(f"CREATE SCHEMA {schema}"))
+                
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS btree_gist"))
     except SQLAlchemyError as exc:
-        logger.warning("Failed to drop/create public schema: %s", exc)
+        logger.error("Failed to drop/create schemas: %s", exc)
         raise

@@ -1,4 +1,5 @@
 from uuid import UUID
+from typing import Optional
 from dataclasses import dataclass, field
 
 from lesson_planner.models import DayOfWeek
@@ -18,4 +19,4 @@ class LessonGene:
 class ScheduleChromosome:
     lessons: list[LessonGene] = field(default_factory=list)
     generation: int = 0
-    fitness: float | None = field(default=None, repr=False, compare=False)
+    fitness: Optional[float] = field(default=None, repr=False, compare=False)
