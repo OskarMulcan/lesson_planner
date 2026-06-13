@@ -11,7 +11,7 @@ IMPORT_REGISTRY: dict[str, ImportHandler] = {
     "teachers": ImportHandler(staff.TeacherRow, staff.upsert_teacher),
     "teacher_subjects": ImportHandler(staff.TeacherSubjectRow, staff.upsert_teacher_subject),
     "teacher_availability": ImportHandler(staff.TeacherAvailabilityRow, staff.upsert_teacher_availability),
-    "lesson_slots": ImportHandler(row_model=scheduling.LessonSlotRow, upsert_fn=scheduling.upsert_lesson_slot),
+    "lesson_slots": ImportHandler(scheduling.LessonSlotRow, scheduling.upsert_lesson_slot),
 }
 
 __all__ = ["run_import", "log_summary", "IMPORT_REGISTRY", "ImportStatus"]

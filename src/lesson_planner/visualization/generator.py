@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from uuid import UUID
+from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from lesson_planner.models import DayOfWeek, LessonSlot, Schedule, ScheduleEntry, ScheduleVisualization, VisualizationDimension
@@ -14,7 +16,9 @@ from .png_renderer import render_png
 
 def _load_slots(session: Session) -> list[SlotInfo]:
     """Load all lesson slots, ordered by slot_number, as grid rows."""
-    rows = session.query(LessonSlot).order_by(LessonSlot.slot_number).all()
+    stmt = select(LessonSlot).order_by(LessonSlot.slot_number)
+    rows = session.execute(stmt).scalars().all()
+    
     return [
         SlotInfo(
             id=row.id,
@@ -33,9 +37,9 @@ def _load_entries(session: Session, schedule_id: UUID) -> list[ScheduleEntry]:
     day, slot) can be placed on a grid; partial/placeholder entries are
     skipped here.
     """
-    return (
-        session.query(ScheduleEntry)
-        .filter(
+    stmt = (
+        select(ScheduleEntry)
+        .where(
             ScheduleEntry.schedule_id == schedule_id,
             ScheduleEntry.class_id.isnot(None),
             ScheduleEntry.subject_id.isnot(None),
@@ -44,8 +48,8 @@ def _load_entries(session: Session, schedule_id: UUID) -> list[ScheduleEntry]:
             ScheduleEntry.day_of_week.isnot(None),
             ScheduleEntry.slot_id.isnot(None),
         )
-        .all()
     )
+    return list(session.execute(stmt).scalars().all())
 
 
 def _build_grids(
@@ -78,6 +82,19 @@ def _build_grids(
         return grid
 
     for entry in entries:
+        if (
+            entry.day_of_week is None
+            or entry.slot_id is None
+            or entry.room_id is None
+            or entry.class_id is None
+            or entry.teacher_id is None
+            or entry.teacher is None
+            or entry.room is None
+            or entry.klass is None
+            or entry.subject is None
+        ):
+            continue
+
         key = (entry.day_of_week, entry.slot_id)
         teacher_name = f"{entry.teacher.first_name} {entry.teacher.last_name}"
 
@@ -108,28 +125,7 @@ def _build_grids(
 def generate_visualizations_for_schedule(
     session: Session, schedule_id: UUID
 ) -> list[ScheduleVisualization]:
-    """Generate and persist room/class/teacher visualizations for a schedule.
-
-    Reads schedule entries and lesson slots from the database, builds a
-    fixed day/slot grid for every room, class, and teacher that appears in
-    the schedule, renders each grid to HTML and PNG, and upserts the result
-    into the schedule_visualizations table (one row per
-    schedule/dimension/entity, overwritten on regeneration).
-
-    Args:
-        session: Active SQLAlchemy session. Caller is responsible for
-            transaction scope; this function commits once at the end.
-        schedule_id: The schedule to visualize. Must already exist with its
-            entries fully populated (the GA + persistence step).
-
-    Returns:
-        The list of persisted ScheduleVisualization rows (one per room,
-        class, and teacher present in the schedule).
-
-    Raises:
-        ValueError: If the schedule does not exist, or no lesson slots are
-            configured.
-    """
+    """Generate and persist room/class/teacher visualizations for a schedule."""
     schedule = session.get(Schedule, schedule_id)
     if schedule is None:
         raise ValueError(f"Schedule {schedule_id} not found")
@@ -146,11 +142,13 @@ def generate_visualizations_for_schedule(
     persisted: list[ScheduleVisualization] = []
     for dimension, entities in grids.items():
         for dimension_id, grid in entities.items():
-            viz = (
-                session.query(ScheduleVisualization)
-                .filter_by(schedule_id=schedule_id, dimension=dimension, dimension_id=dimension_id)
-                .one_or_none()
+            stmt = select(ScheduleVisualization).where(
+                ScheduleVisualization.schedule_id == schedule_id,
+                ScheduleVisualization.dimension == dimension,
+                ScheduleVisualization.dimension_id == dimension_id
             )
+            viz = session.execute(stmt).scalar_one_or_none()
+            
             if viz is None:
                 viz = ScheduleVisualization(
                     schedule_id=schedule_id,
@@ -173,49 +171,44 @@ def get_visualization(
     schedule_id: UUID,
     dimension: VisualizationDimension,
     dimension_id: UUID,
-) -> ScheduleVisualization | None:
+) -> Optional[ScheduleVisualization]:
     """Fetch a single persisted visualization, or None if not generated yet."""
-    return (
-        session.query(ScheduleVisualization)
-        .filter_by(schedule_id=schedule_id, dimension=dimension, dimension_id=dimension_id)
-        .one_or_none()
+    stmt = select(ScheduleVisualization).where(
+        ScheduleVisualization.schedule_id == schedule_id,
+        ScheduleVisualization.dimension == dimension,
+        ScheduleVisualization.dimension_id == dimension_id
     )
+    return session.execute(stmt).scalar_one_or_none()
 
 
 def list_visualizations(
     session: Session,
     schedule_id: UUID,
-    dimension: VisualizationDimension | None = None,
+    dimension: Optional[VisualizationDimension] = None,
 ) -> list[ScheduleVisualization]:
     """List persisted visualizations for a schedule, optionally filtered by dimension."""
-    query = session.query(ScheduleVisualization).filter_by(schedule_id=schedule_id)
+    stmt = select(ScheduleVisualization).where(ScheduleVisualization.schedule_id == schedule_id)
+    
     if dimension is not None:
-        query = query.filter_by(dimension=dimension)
-    return query.order_by(ScheduleVisualization.dimension, ScheduleVisualization.label).all()
+        stmt = stmt.where(ScheduleVisualization.dimension == dimension)
+        
+    stmt = stmt.order_by(ScheduleVisualization.dimension, ScheduleVisualization.label)
+    return list(session.execute(stmt).scalars().all())
 
 
 def export_visualization(
     viz: ScheduleVisualization, output_dir: Path
-) -> tuple[Path | None, Path | None]:
-    """Write a single visualization's HTML and PNG content to disk.
-
-    Args:
-        viz: A persisted ScheduleVisualization row.
-        output_dir: Directory to write files into; created if missing.
-
-    Returns:
-        A tuple of (html_path, png_path). Either element is None if that
-        content was not stored for this row.
-    """
+) -> tuple[Optional[Path], Optional[Path]]:
+    """Write a single visualization's HTML and PNG content to disk."""
     output_dir.mkdir(parents=True, exist_ok=True)
     slug = f"{viz.dimension.value.lower()}_{viz.label}".replace(" ", "_").replace("/", "-")
 
-    html_path: Path | None = None
+    html_path: Optional[Path] = None
     if viz.html_content:
         html_path = output_dir / f"{slug}.html"
         html_path.write_text(viz.html_content, encoding="utf-8")
 
-    png_path: Path | None = None
+    png_path: Optional[Path] = None
     if viz.png_content:
         png_path = output_dir / f"{slug}.png"
         png_path.write_bytes(viz.png_content)
@@ -224,7 +217,13 @@ def export_visualization(
 
 
 def export_all_visualizations(
-    session: Session, schedule_id: UUID, output_dir: Path
-) -> list[tuple[Path | None, Path | None]]:
-    """Export every persisted visualization for a schedule to disk."""
-    return [export_visualization(viz, output_dir) for viz in list_visualizations(session, schedule_id)]
+    session: Session, 
+    schedule_id: UUID, 
+    output_dir: Path,
+    dimension: Optional[VisualizationDimension] = None
+) -> list[tuple[Optional[Path], Optional[Path]]]:
+    """Export every persisted visualization for a schedule to disk, optionally filtered by dimension."""
+    return [
+        export_visualization(viz, output_dir) 
+        for viz in list_visualizations(session, schedule_id, dimension)
+    ]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .schemas import SchedulingContext
 from .chromosome import ScheduleChromosome
-from .constraints.base import CompositeConstraint
+from .constraints import Constraint
 from .population import Population
 from .repairs import RepairsOperator
 
@@ -11,7 +11,7 @@ class GeneticEngine:
     def __init__(
         self,
         context: SchedulingContext,
-        registry: CompositeConstraint,
+        registry: Constraint,
         population_size: int,
         tournament_size: int,
         mutation_rate: float,

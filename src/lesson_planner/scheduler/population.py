@@ -4,11 +4,11 @@ from random import sample, choice, random
 
 from .schemas import SchedulingContext
 from .chromosome import ScheduleChromosome, LessonGene
-from .constraints.base import CompositeConstraint
+from .constraints import Constraint
 
 
 class Population:
-    def __init__(self, context: SchedulingContext, registry: CompositeConstraint) -> None:
+    def __init__(self, context: SchedulingContext, registry: Constraint) -> None:
         self._context = context
         self._registry = registry
         self._schedules: list[ScheduleChromosome] = []

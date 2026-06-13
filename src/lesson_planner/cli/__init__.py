@@ -1,1 +1,3 @@
-from lesson_planner.cli.main import app
+from .main import app
+
+__all__ = ["app"]

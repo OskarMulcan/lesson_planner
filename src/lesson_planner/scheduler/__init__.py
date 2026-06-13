@@ -2,7 +2,7 @@ from .chromosome import ScheduleChromosome, LessonGene
 from .ga_engine import GeneticEngine
 from .persistence import SchedulePersister
 from .schemas import SchedulingContext, build_scheduling_context
-from .constraints.base import CompositeConstraint, Constraint, ConstraintResult
+from .constraints import CompositeConstraint, Constraint, ConstraintResult
 
 __all__ = [
     "ScheduleChromosome",

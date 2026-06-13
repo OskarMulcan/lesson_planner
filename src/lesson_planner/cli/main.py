@@ -5,12 +5,14 @@ from lesson_planner.logging_setup import configure_logging
 from .db import db_app
 from .imports import import_app
 from .scheduler import scheduler_app
+from .visualization import viz_app
 
 app = typer.Typer(help="Lesson Planner CLI")
 
 app.add_typer(db_app, name="db")
 app.add_typer(import_app, name="import")
 app.add_typer(scheduler_app, name="schedule")
+app.add_typer(viz_app, name="viz")
 
 
 def _log_level_callback(ctx: typer.Context, value: str) -> str:
