@@ -60,7 +60,6 @@ class RepairsOperator:
                 if (tid, l.day, l.slot_id) not in seen
             ],
         )
-
         chromosome.lessons = self._repair_collisions(
             chromosome.lessons,
             get_key=lambda l: l.room_id,
@@ -70,18 +69,10 @@ class RepairsOperator:
                 if (rid, l.day, l.slot_id) not in seen
             ],
         )
-
         chromosome.lessons = self._repair_collisions(
             chromosome.lessons,
             get_key=lambda l: l.class_id,
-            field_name="class_id",
-            get_alternatives=lambda l, seen: [
-                cid for cid in self._context.required_lessons
-                if (cid, l.day, l.slot_id) not in seen
-                and l.subject_id in self._context.required_lessons[cid]
-            ],
+            field_name="slot_id",
+            get_alternatives=lambda l, seen: [],
         )
-
-        chromosome.fitness = None
-
         chromosome.fitness = None

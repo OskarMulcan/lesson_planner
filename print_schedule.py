@@ -9,10 +9,13 @@ from lesson_planner.models import Class, LessonSlot, Room, Subject, Teacher
 from lesson_planner.scheduler.constraints.base import CompositeConstraint
 from lesson_planner.scheduler.constraints.constraints import (
     LessonFrequencyConstraint,
+    MaxLessonsPerDayPerClassConstraint,
     NoDoubleBookingConstraint,
     PenalizeClassWindowsConstraint,
+    PenalizeLateSlotsConstraint,
     PenalizeTeacherWindowsConstraint,
     TeacherAvailabilityConstraint,
+    TeacherMaxDailyLessonsConstraint,
 )
 from lesson_planner.scheduler.ga_engine import GeneticEngine
 from lesson_planner.scheduler.scheduler_models import build_scheduling_context
@@ -31,22 +34,28 @@ def main() -> None:
             NoDoubleBookingConstraint(),
             TeacherAvailabilityConstraint(),
             LessonFrequencyConstraint(),
+            MaxLessonsPerDayPerClassConstraint(),
+            TeacherMaxDailyLessonsConstraint(),
             PenalizeClassWindowsConstraint(),
             PenalizeTeacherWindowsConstraint(),
+            PenalizeLateSlotsConstraint(),
         )
         engine = GeneticEngine(
             context=context,
             registry=registry,
-            population_size=50,
+            population_size=100,
             tournament_size=3,
-            mutation_rate=0.05,
+            mutation_rate=0.07,
             repair_every_n=5,
-            max_generations=100,
+            max_generations=2000,
             fitness_threshold=0.0,
-            elite_size=1,
+            elite_size=5,
         )
+
         best = engine.run()
-        print(f"\nBest fitness: {best.fitness}, lessons: {len(best.lessons)}\n")
+
+        result = registry.evaluate(best, context)
+        print(f"=== Violations (total penalty: {result.penalty}) ===")
 
         # id -> display name lookups
         classes = {c.id: c.name for c in session.query(Class).all()}
@@ -85,6 +94,21 @@ def main() -> None:
                         print(f"    {day:<10} {row[day][1]}")
             print()
 
+        id_to_name = {}
+        id_to_name.update({k: f"class {v}" for k, v in classes.items()})
+        id_to_name.update({k: f"subject {v}" for k, v in subjects.items()})
+        id_to_name.update({k: f"teacher {v}" for k, v in teachers.items()})
+        id_to_name.update({k: f"room {v}" for k, v in rooms.items()})
+
+        def readable(text: str) -> str:
+            for uuid_obj, name in id_to_name.items():
+                text = text.replace(str(uuid_obj), name)
+            return text
+
+        result = registry.evaluate(best, context)
+        print(f"=== Violations (total penalty: {result.penalty}) ===")
+        print(readable(result.detail) or "(none)")
+        print()
 
 if __name__ == "__main__":
     main()

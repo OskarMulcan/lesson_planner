@@ -1,9 +1,9 @@
 from collections import defaultdict
 
-from models import DayOfWeek
 from .base import Constraint, ConstraintResult
 from lesson_planner.scheduler.chromosome import ScheduleChromosome
 from lesson_planner.scheduler.scheduler_models import SchedulingContext
+from lesson_planner.models import DayOfWeek
 
 
 class NoDoubleBookingConstraint(Constraint):
@@ -43,7 +43,7 @@ class NoDoubleBookingConstraint(Constraint):
 
 
 class TeacherAvailabilityConstraint(Constraint):
-    PENALTY = 100.0
+    PENALTY = 200.0
 
     @property
     def name(self) -> str:
@@ -101,7 +101,7 @@ def _slot_positions(context: SchedulingContext) -> dict:
 
 
 class PenalizeClassWindowsConstraint(Constraint):
-    PENALTY = 50.0
+    PENALTY = 100.0
 
     @property
     def name(self) -> str:
@@ -145,4 +145,74 @@ class PenalizeTeacherWindowsConstraint(Constraint):
             if gaps:
                 penalty += gaps * self.PENALTY
                 violations.append(f"Teacher {teacher_id} has {gaps} gap slot(s) on {day}")
+        return ConstraintResult(name=self.name, penalty=penalty, detail=" | ".join(violations))
+
+class MaxLessonsPerDayPerClassConstraint(Constraint):
+    PENALTY = 1000.0
+    MAX_PER_DAY = 7
+
+    @property
+    def name(self) -> str:
+        return "max_lessons_per_day_per_class"
+
+    def evaluate(self, schedule: ScheduleChromosome, context: SchedulingContext) -> ConstraintResult:
+        counts: dict[tuple, int] = defaultdict(int)
+        for lesson in schedule.lessons:
+            counts[(lesson.class_id, lesson.day)] += 1
+
+        penalty = 0.0
+        violations: list[str] = []
+        for (class_id, day), count in counts.items():
+            over = count - self.MAX_PER_DAY
+            if over > 0:
+                penalty += over * self.PENALTY
+                violations.append(f"Class {class_id} has {count} lessons on {day} (max {self.MAX_PER_DAY})")
+        return ConstraintResult(name=self.name, penalty=penalty, detail=" | ".join(violations))
+
+
+class TeacherMaxDailyLessonsConstraint(Constraint):
+    PENALTY = 1000.0
+    MAX_PER_DAY = 6
+
+    @property
+    def name(self) -> str:
+        return "teacher_max_daily_lessons"
+
+    def evaluate(self, schedule: ScheduleChromosome, context: SchedulingContext) -> ConstraintResult:
+        counts: dict[tuple, int] = defaultdict(int)
+        for lesson in schedule.lessons:
+            counts[(lesson.teacher_id, lesson.day)] += 1
+
+        penalty = 0.0
+        violations: list[str] = []
+        for (teacher_id, day), count in counts.items():
+            over = count - self.MAX_PER_DAY
+            if over > 0:
+                penalty += over * self.PENALTY
+                violations.append(f"Teacher {teacher_id} has {count} lessons on {day} (max {self.MAX_PER_DAY})")
+        return ConstraintResult(name=self.name, penalty=penalty, detail=" | ".join(violations))
+
+class PenalizeLateSlotsConstraint(Constraint):
+    BASE_PENALTY = 10.0
+    MULTIPLIER = 2.0
+    THRESHOLD = 5
+
+    @property
+    def name(self) -> str:
+        return "late_slots"
+
+    def evaluate(self, schedule: ScheduleChromosome, context: SchedulingContext) -> ConstraintResult:
+        positions = _slot_positions(context)
+        penalty = 0.0
+        violations: list[str] = []
+        for lesson in schedule.lessons:
+            position = positions[lesson.slot_id]
+            over = position - self.THRESHOLD
+            if over >= 0:
+                lesson_penalty = self.BASE_PENALTY * (self.MULTIPLIER ** (over + 1))
+                penalty += lesson_penalty
+                violations.append(
+                    f"Class {lesson.class_id} subject {lesson.subject_id} "
+                    f"on {lesson.day} slot-position {position} (+{lesson_penalty})"
+                )
         return ConstraintResult(name=self.name, penalty=penalty, detail=" | ".join(violations))
