@@ -10,6 +10,8 @@ from lesson_planner.scheduler.constraints.base import CompositeConstraint
 from lesson_planner.scheduler.constraints.constraints import (
     NoDoubleBookingConstraint,
     LessonFrequencyConstraint,
+    PenalizeClassWindowsConstraint,
+    PenalizeTeacherWindowsConstraint
 )
 from lesson_planner.scheduler.ga_engine import GeneticEngine
 from lesson_planner.scheduler.persistence import SchedulePersister
@@ -43,7 +45,9 @@ def run(
         registry = CompositeConstraint(
             "master_registry",
             NoDoubleBookingConstraint(),
-            LessonFrequencyConstraint()
+            LessonFrequencyConstraint(),
+            PenalizeClassWindowsConstraint(),
+            PenalizeTeacherWindowsConstraint(),
         )
 
         typer.echo(f"Initializing Genetic Engine (Max Generations: {max_generations})...")

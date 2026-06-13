@@ -1,8 +1,12 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from collections import defaultdict
 
 from .base import Constraint, ConstraintResult
-from lesson_planner.scheduler.chromosome import ScheduleChromosome
-from lesson_planner.scheduler.schemas import SchedulingContext
+from ...models import DayOfWeek
+
+if TYPE_CHECKING:
+    from ...scheduler import ScheduleChromosome, SchedulingContext
 
 
 class NoDoubleBookingConstraint(Constraint):
@@ -87,4 +91,61 @@ class LessonFrequencyConstraint(Constraint):
                         f"Class {class_id} subject {subject_id}: expected {required} got {actual}"
                     )
 
+        return ConstraintResult(name=self.name, penalty=penalty, detail=" | ".join(violations))
+
+
+def _slot_positions(context: SchedulingContext) -> dict:
+    """Map slot_id -> position-in-day (0-indexed), based on slot order."""
+    days = list(DayOfWeek)
+    slots_per_day = len(context.all_day_slots) // len(days)
+    return {
+        slot_id: position
+        for position, (_, slot_id) in enumerate(context.all_day_slots[:slots_per_day])
+    }
+
+class PenalizeClassWindowsConstraint(Constraint):
+    PENALTY = 50.0
+
+    @property
+    def name(self) -> str:
+        return "class_windows"
+
+    def evaluate(self, schedule: ScheduleChromosome, context: SchedulingContext) -> ConstraintResult:
+        positions = _slot_positions(context)
+        by_day: dict[tuple, list[int]] = defaultdict(list)
+        for lesson in schedule.lessons:
+            by_day[(lesson.class_id, lesson.day)].append(positions[lesson.slot_id])
+
+        penalty = 0.0
+        violations: list[str] = []
+        for (class_id, day), slots in by_day.items():
+            slots.sort()
+            gaps = sum(b - a - 1 for a, b in zip(slots, slots[1:]) if b - a > 1)
+            if gaps:
+                penalty += gaps * self.PENALTY
+                violations.append(f"Class {class_id} has {gaps} gap slot(s) on {day}")
+        return ConstraintResult(name=self.name, penalty=penalty, detail=" | ".join(violations))
+
+
+class PenalizeTeacherWindowsConstraint(Constraint):
+    PENALTY = 50.0
+
+    @property
+    def name(self) -> str:
+        return "teacher_windows"
+
+    def evaluate(self, schedule: ScheduleChromosome, context: SchedulingContext) -> ConstraintResult:
+        positions = _slot_positions(context)
+        by_day: dict[tuple, list[int]] = defaultdict(list)
+        for lesson in schedule.lessons:
+            by_day[(lesson.teacher_id, lesson.day)].append(positions[lesson.slot_id])
+
+        penalty = 0.0
+        violations: list[str] = []
+        for (teacher_id, day), slots in by_day.items():
+            slots.sort()
+            gaps = sum(b - a - 1 for a, b in zip(slots, slots[1:]) if b - a > 1)
+            if gaps:
+                penalty += gaps * self.PENALTY
+                violations.append(f"Teacher {teacher_id} has {gaps} gap slot(s) on {day}")
         return ConstraintResult(name=self.name, penalty=penalty, detail=" | ".join(violations))
