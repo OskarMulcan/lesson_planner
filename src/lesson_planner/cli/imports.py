@@ -1,11 +1,12 @@
+from __future__ import annotations
+
 import typer
 from pathlib import Path
 
-from lesson_planner.logging_setup import configure_logging
-from lesson_planner.database import get_session
-from lesson_planner.data_imports.base import run_import, log_summary
+from ..logging_setup import configure_logging
+from ..database import get_session
+from ..data_imports import run_import, log_summary, IMPORT_REGISTRY
 
-from lesson_planner.data_imports import IMPORT_REGISTRY
 
 import_app = typer.Typer(help="Data import commands.")
 

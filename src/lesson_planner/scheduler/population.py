@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from random import sample, choice, random
+from random import sample, choice, random, randint
 
 from .schemas import SchedulingContext
 from .chromosome import ScheduleChromosome, LessonGene
@@ -73,15 +73,16 @@ class Population:
         return min(candidates, key=lambda s: s.fitness if s.fitness is not None else float("inf"))
 
     def crossover(self, parent_a: ScheduleChromosome, parent_b: ScheduleChromosome) -> ScheduleChromosome:
-        """Single-point crossover - split lessons list at a random index.
-
-        Both parents originate from ``build_chromosome`` (directly, or via
-        repair which preserves length/order, or via a previous crossover),
-        so they always have the same number of lessons in the same
-        (class_id, subject_id) order; slicing at any index keeps that
-        alignment intact in the child.
+        """Single-point crossover with a randomized cut point.
+        
+        Randomizing the cut point allows different combinations of class sets
+        to mix across generations, breaking structural deadlocks.
         """
-        cut = len(parent_a.lessons) // 2
+        if len(parent_a.lessons) < 2:
+            return ScheduleChromosome(lessons=list(parent_a.lessons), generation=parent_a.generation + 1)
+
+        cut = randint(1, len(parent_a.lessons) - 1)
+        
         child = ScheduleChromosome(
             lessons=parent_a.lessons[:cut] + parent_b.lessons[cut:],
             generation=max(parent_a.generation, parent_b.generation) + 1,
@@ -89,32 +90,52 @@ class Population:
         return child
 
     def mutate(self, chromosome: ScheduleChromosome, mutation_rate: float) -> None:
-        new_lessons: list[LessonGene] = []
-        for lesson in chromosome.lessons:
-            if random() < mutation_rate:
-                day, slot_id = choice(self._context.all_day_slots)
+        """Low-destruction Swap Mutation.
+        
+        Treats mutation_rate as a per-chromosome probability. If triggered, 
+        it picks two random lessons and swaps their days and time slots. This 
+        re-arranges the timetable layout without breaking curriculum volume counts.
+        """
+        if random() >= mutation_rate:
+            return
 
-                new_teacher = (
-                    choice(self._context.subject_teachers[lesson.subject_id])
-                    if random() < 0.3 and self._context.subject_teachers.get(lesson.subject_id)
-                    else lesson.teacher_id
+        if len(chromosome.lessons) < 2:
+            return
+
+        idx1, idx2 = sample(range(len(chromosome.lessons)), 2)
+        
+        l1 = chromosome.lessons[idx1]
+        l2 = chromosome.lessons[idx2]
+
+        chromosome.lessons[idx1] = LessonGene(
+            class_id=l1.class_id,
+            subject_id=l1.subject_id,
+            teacher_id=l1.teacher_id,
+            room_id=l1.room_id,
+            day=l2.day,
+            slot_id=l2.slot_id,
+        )
+        chromosome.lessons[idx2] = LessonGene(
+            class_id=l2.class_id,
+            subject_id=l2.subject_id,
+            teacher_id=l2.teacher_id,
+            room_id=l2.room_id,
+            day=l1.day,
+            slot_id=l1.slot_id,
+        )
+
+        if random() < 0.15:
+            g = chromosome.lessons[idx1]
+            teachers = self._context.subject_teachers.get(g.subject_id, [])
+            rooms = self._context.subject_rooms.get(g.subject_id, [])
+            if teachers and rooms:
+                chromosome.lessons[idx1] = LessonGene(
+                    class_id=g.class_id,
+                    subject_id=g.subject_id,
+                    teacher_id=choice(teachers),
+                    room_id=choice(rooms),
+                    day=g.day,
+                    slot_id=g.slot_id,
                 )
-                new_room = (
-                    choice(self._context.subject_rooms[lesson.subject_id])
-                    if random() < 0.3 and self._context.subject_rooms.get(lesson.subject_id)
-                    else lesson.room_id
-                )
 
-                new_lessons.append(LessonGene(
-                    class_id=lesson.class_id,
-                    subject_id=lesson.subject_id,
-                    teacher_id=new_teacher,
-                    room_id=new_room,
-                    day=day,
-                    slot_id=slot_id,
-                ))
-            else:
-                new_lessons.append(lesson)
-
-        chromosome.lessons = new_lessons
         chromosome.fitness = None

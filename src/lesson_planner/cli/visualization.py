@@ -5,8 +5,8 @@ from uuid import UUID
 from pathlib import Path
 from typing import Optional
 
-from lesson_planner.logging_setup import configure_logging
-from lesson_planner.models import VisualizationDimension
+from ..logging_setup import configure_logging
+from ..models import VisualizationDimension
 
 viz_app = typer.Typer(help="Manage and export schedule visualizations.")
 

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import logging
 import typer
 
-from lesson_planner.logging_setup import configure_logging
-from lesson_planner.database import init_db, clear_data, drop_schema, APP_SCHEMAS
+from ..logging_setup import configure_logging
+from ..database import init_db, clear_data, drop_schema, APP_SCHEMAS
 
 db_app = typer.Typer(help="Database management commands.")
 

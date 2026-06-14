@@ -89,11 +89,11 @@ class ScheduleEntry(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()")
     )
-    schedule_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("schedule.schedules.id"))
-    class_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("academic.classes.id"))
-    subject_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("academic.subjects.id"))
-    teacher_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("staff.teachers.id"))
-    room_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("facilities.rooms.id"))
+    schedule_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("schedule.schedules.id", ondelete="CASCADE"))
+    class_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("academic.classes.id", ondelete="SET NULL"))
+    subject_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("academic.subjects.id", ondelete="SET NULL"))
+    teacher_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("staff.teachers.id", ondelete="SET NULL"))
+    room_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("facilities.rooms.id", ondelete="SET NULL"))
     day_of_week: Mapped[Optional[DayOfWeek]] = mapped_column(
         SAEnum(DayOfWeek, name="day_of_week", schema="schedule", native_enum=True)
     )

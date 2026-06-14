@@ -1,17 +1,14 @@
-from .chromosome import ScheduleChromosome, LessonGene
+from __future__ import annotations
+
 from .ga_engine import GeneticEngine
 from .persistence import SchedulePersister
 from .schemas import SchedulingContext, build_scheduling_context
-from .constraints import CompositeConstraint, Constraint, ConstraintResult
+from .constraints import REGISTRY as MASTER_CONSTRAINT_REGISTRY
 
 __all__ = [
-    "ScheduleChromosome",
-    "LessonGene",
     "GeneticEngine",
     "SchedulePersister",
     "SchedulingContext",
     "build_scheduling_context",
-    "CompositeConstraint",
-    "Constraint",
-    "ConstraintResult",
+    "MASTER_CONSTRAINT_REGISTRY",
 ]

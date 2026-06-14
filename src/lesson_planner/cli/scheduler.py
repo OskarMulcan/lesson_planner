@@ -1,20 +1,20 @@
+from __future__ import annotations
+
 import logging
+import uuid
 from typing import Annotated
 import typer
 
-from lesson_planner.logging_setup import configure_logging
-from lesson_planner.database import get_session
-
-from lesson_planner.scheduler.schemas import build_scheduling_context
-from lesson_planner.scheduler.constraints.base import CompositeConstraint
-from lesson_planner.scheduler.constraints.constraints import (
-    NoDoubleBookingConstraint,
-    LessonFrequencyConstraint,
-    PenalizeClassWindowsConstraint,
-    PenalizeTeacherWindowsConstraint
+from ..logging_setup import configure_logging
+from ..database import get_session
+from ..scheduler import (
+    build_scheduling_context,
+    MASTER_CONSTRAINT_REGISTRY,
+    GeneticEngine,
+    SchedulePersister,
 )
-from lesson_planner.scheduler.ga_engine import GeneticEngine
-from lesson_planner.scheduler.persistence import SchedulePersister
+from ..models.scheduling import Schedule
+
 
 scheduler_app = typer.Typer(help="Scheduling commands.")
 logger = logging.getLogger(__name__)
@@ -41,19 +41,10 @@ def run(
         typer.echo("Building scheduling context from database...")
         context = build_scheduling_context(session)
 
-        typer.echo("Assembling constraints...")
-        registry = CompositeConstraint(
-            "master_registry",
-            NoDoubleBookingConstraint(),
-            LessonFrequencyConstraint(),
-            PenalizeClassWindowsConstraint(),
-            PenalizeTeacherWindowsConstraint(),
-        )
-
         typer.echo(f"Initializing Genetic Engine (Max Generations: {max_generations})...")
         engine = GeneticEngine(
             context=context,
-            registry=registry,
+            registry=MASTER_CONSTRAINT_REGISTRY,
             population_size=population_size,
             tournament_size=tournament_size,
             mutation_rate=mutation_rate,
@@ -66,7 +57,6 @@ def run(
         )
 
         typer.echo("Running scheduling algorithm. This may take a while...")
-        
         best_chromosome = engine.run()
 
         if best_chromosome:
@@ -86,3 +76,49 @@ def run(
                 typer.secho(f"Failed to save schedule '{name}'.", fg=typer.colors.RED)
         else:
             typer.secho("Algorithm finished. No valid schedule was achieved.", fg=typer.colors.RED)
+
+
+@scheduler_app.command()
+def check(
+    schedule_id_str: Annotated[str, typer.Argument(help="The UUID of the schedule to validate")],
+) -> None:
+    """Evaluate a saved schedule and list all current rule and penalty violations."""
+    configure_logging()
+
+    try:
+        schedule_id = uuid.UUID(schedule_id_str)
+    except ValueError:
+        typer.secho(f"Error: '{schedule_id_str}' is not a valid UUID format.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    with get_session() as session:
+        schedule_meta = session.query(Schedule).filter(Schedule.id == schedule_id).one_or_none()
+        if not schedule_meta:
+            typer.secho(f"Error: Schedule with ID {schedule_id} not found.", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+        typer.echo(f"Loading and mapping data layers for schedule: '{schedule_meta.name}'...")
+        
+        try:
+            chromosome, context = SchedulePersister.load_from_db(session, schedule_id)
+        except ValueError as e:
+            typer.secho(f"Error loading schedule: {e}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+        if not chromosome.lessons:
+            typer.secho("Warning: This schedule contains zero complete, active structural entries.", fg=typer.colors.YELLOW)
+            raise typer.Exit()
+
+        typer.echo("Running validation suite against master constraint registry...")
+        result = MASTER_CONSTRAINT_REGISTRY.evaluate(chromosome, context)
+
+        typer.echo("-" * 60)
+        typer.echo(f"DIAGNOSTIC REPORT FOR: {schedule_meta.name}")
+        typer.echo(f"Overall Penalty Score: {result.penalty} (Lower is better, 0.0 means perfect)")
+        typer.echo("-" * 60)
+
+        if result.penalty == 0.0 or not result.detail.strip():
+            typer.secho("Congratulations! Zero rule violations or penalties found.", fg=typer.colors.GREEN)
+            return
+
+        typer.secho(result.detail.strip(), fg=typer.colors.RED)

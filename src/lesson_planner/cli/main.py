@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import typer
 
-from lesson_planner.logging_setup import configure_logging
+from ..logging_setup import configure_logging
 
 from .db import db_app
 from .imports import import_app
